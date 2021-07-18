@@ -1,12 +1,19 @@
 
 
 #include <Particle.h>
+#include <cmath>
+#include "Air_Quality_Sensor.h"
 
 SYSTEM_THREAD(ENABLED);
-// We're creating a BLE peripheral that need not connect to the Particle Cloud
+// We're creating a BLE beacon that need not connect to the Particle Cloud
 SYSTEM_MODE(MANUAL);
 
-// SerialLogHandler logHandler(LOG_LEVEL_INFO);
+// Pin for the gas sensor
+const uint8_t AQS_PIN = (A2);
+
+// Main gas sensor
+AirQualitySensor aq_sensor(AQS_PIN);
+
 SerialLogHandler logHandler(115200, LOG_LEVEL_INFO,
     {
       {"app", LOG_LEVEL_INFO},
@@ -15,7 +22,9 @@ SerialLogHandler logHandler(115200, LOG_LEVEL_INFO,
 
 static SystemSleepConfiguration sleep_cfg = {};
 static uint8_t custom_adv_data[BLE_MAX_ADV_DATA_LEN] = {};
-static double custom_data_value = 0;
+// The value to report in advertisement
+static uint32_t report_value = 0;
+static float ewma_value = 0;
 
 /// Change advertising data to match latest values
 static void update_adv_data() {
@@ -37,8 +46,8 @@ static void update_adv_data() {
 	custom_adv_data[offset++] = 0x55;
 
 	// Our specific data
-	memcpy(&custom_adv_data[offset], &custom_data_value, sizeof(custom_data_value));
-	offset += sizeof(custom_data_value);
+	memcpy(&custom_adv_data[offset], &report_value, sizeof(report_value));
+	offset += sizeof(report_value);
 
 	BleAdvertisingData ble_ad_data;
 	ble_ad_data.appendCustomData(custom_adv_data, offset);
@@ -50,36 +59,41 @@ static void update_adv_data() {
 
 	// Continuously advertise
 	BLE.advertise(&ble_ad_data);
-  Log.info("adv: %f", custom_data_value);
+  Log.info("adv: %lu", report_value);
 
 }
 
 static void configure_advertising() {
-  //enable BLE
   BLE.on();
   update_adv_data();
 }
 
-
+static void poll_aq_sensor() {
+  // ask the sensor to update
+  int aq_level = aq_sensor.slope();
+  if (aq_level >= 0) {
+    // these values generally fall into the range 0..1024
+    int32_t raw_aq = aq_sensor.getValue();
+    ewma_value += ((float)raw_aq - ewma_value)*0.01; // EWMA using alpha of 0.01
+    report_value = (uint32_t)ceilf(ewma_value);
+  }
+}
 
 // control how long we sleep based on data collection and publication config
 static void sleep_control(uint32_t sleep_ms) {
   sleep_cfg.mode(SystemSleepMode::ULTRA_LOW_POWER)
-  // keep BLE active and advertising
+    // keep BLE active and advertising during sleep
     .ble()
-	// Wake on battery fuel gauge event, eg battery unplugged 
-    // .gpio(LOW_BAT_UC, FALLING) 
-    .duration(sleep_ms); //ms
+    .duration(sleep_ms); 
   
   uint32_t sleep_start = millis();
   Log.info("sleep %lu ms", sleep_ms);
   SystemSleepResult sleep_res = System.sleep(sleep_cfg);
-  SystemSleepWakeupReason wake_reason = sleep_res.wakeupReason();
   uint32_t sleep_actual = millis() - sleep_start;
-  // allow some time for usb serial to wake from sleep
   Serial.begin();
-  delay(3000);
-  Log.info("sleep_actual: %lu", sleep_actual);
+  SystemSleepWakeupReason wake_reason = sleep_res.wakeupReason();
+  // allow some time for usb serial to wake from sleep
+  delay(1000);
 
   switch (wake_reason) {
 	case SystemSleepWakeupReason::BY_RTC:
@@ -98,6 +112,8 @@ static void sleep_control(uint32_t sleep_ms) {
     }
     break;
   }
+  Log.info("sleep_actual: %lu", sleep_actual);
+
 }
 
 // setup() runs once, when the device is first turned on.
@@ -105,17 +121,20 @@ void setup() {
   Serial.begin();
   delay(3000); //wait for serial usb to init, if connected
   Log.info("=== begin ===");
+  aq_sensor.init();
   configure_advertising();
-
 }
 
 // loop() runs over and over again, as quickly as it can execute.
 void loop() {
 
   // read the argon battery voltage (https://docs.particle.io/cards/firmware/battery-voltage/battery-voltage/)
-  custom_data_value = ((double)analogRead(BATT)) * 0.0011224;
+  // custom_data_value = ((double)analogRead(BATT)) * 0.0011224;
+
+  poll_aq_sensor();
   update_adv_data();
 
+  // sleep for a while between polling sensor
   sleep_control(15000);
 }
 

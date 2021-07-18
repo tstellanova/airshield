@@ -1,0 +1,3 @@
+[submodule "lib/aqsensor"]
+	path = lib/aqsensor
+	url = https://github.com/particle-iot/Grove_Air_quality_Sensor
