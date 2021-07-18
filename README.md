@@ -1,6 +1,40 @@
 # airshield
 
-A Particle project named airshield
+This application for the Particle Argon 
+reads an attached air quality (gas) sensor and broadcasts the data via BLE.
+This example uses the least power possible by sleeping in between sensor measurements,
+while continuing to advertise via BLE. 
+
+This application uses the [Grove Air Quality Sensor](https://github.com/particle-iot/Grove_Air_quality_Sensor)
+to detect noxious gases. 
+
+
+### To Build & Flash with Particle Workbench (vscode)
+
+This application may be built with Device OS version 2.1.0 (LTS) and above.
+
+1. Clone this repository 
+2. Init & Update Submodules `git submodule update --init --recursive`
+3. Open Particle Workbench
+4. Run the `Particle: Import Project` command, follow the prompts, to select this project's `project.properties` file and wait for the project to load
+5. Run the `Particle: Configure Workspace for Device` command and select a compatible Device OS version and the `argon` platform when prompted ([docs](https://docs.particle.io/tutorials/developer-tools/workbench/#cloud-build-and-flash))
+6. Connect your Argon to your computer with a usb cable
+7. Compile & Flash using Workbench
+
+
+### To Build & Flash with Particle CLI
+
+This application may be built with Device OS version 2.1.0 (LTS) and above.
+
+1. Clone this repository 
+2. Init & Update Submodules `git submodule update --init --recursive`
+3. Cloud build with CLI :
+`particle compile --target 2.1.0 argon --saveTo airshield_argon.bin`
+
+4. Connect your Argon to your computer with a usb cable
+5. Use the CLI to flash the device using dfu:
+`particle usb dfu && particle flash --usb airshield_argon.bin`
+
 
 ## Welcome to your project!
 
