@@ -1,12 +1,20 @@
 # airshield
 
 This application for the Particle Argon 
-reads an attached air quality (gas) sensor and broadcasts the data via BLE.
+reads an attached gas sensor and broadcasts its measurments periodically via 
+Bluetooth Low Energy (BLE) advertising.
 This example uses the least power possible by sleeping in between sensor measurements,
 while continuing to advertise via BLE. 
+It is meant to be used with the 
+[airgrouper](https://github.com/tstellanova/airgrouper.git)
+data collection hub that collects readings from multiple intermittently nearby
+airshields and forwards to the Particle Cloud. 
 
-This application uses the [Grove Air Quality Sensor](https://github.com/particle-iot/Grove_Air_quality_Sensor)
-to detect noxious gases. 
+This application uses a 
+[compact air quality sensor](https://www.sparkfun.com/products/14348)
+to detect volatile organic compounds (VOCs) as well as carbon dioxide.
+This application uses the onboard temperature and humidity sensor (BME280)
+to dynamically recalibrate the gas sensor. 
 
 
 ### To Build & Flash with Particle Workbench (vscode)
@@ -35,35 +43,3 @@ This application may be built with Device OS version 2.1.0 (LTS) and above.
 5. Use the CLI to flash the device using dfu:
 `particle usb dfu && particle flash --usb airshield_argon.bin`
 
-
-## Welcome to your project!
-
-Every new Particle project is composed of 3 important elements that you'll see have been created in your project directory for airshield.
-
-#### ```/src``` folder:  
-This is the source folder that contains the firmware files for your project. It should *not* be renamed. 
-Anything that is in this folder when you compile your project will be sent to our compile service and compiled into a firmware binary for the Particle device that you have targeted.
-
-If your application contains multiple files, they should all be included in the `src` folder. If your firmware depends on Particle libraries, those dependencies are specified in the `project.properties` file referenced below.
-
-#### ```.ino``` file:
-This file is the firmware that will run as the primary application on your Particle device. It contains a `setup()` and `loop()` function, and can be written in Wiring or C/C++. For more information about using the Particle firmware API to create firmware for your Particle device, refer to the [Firmware Reference](https://docs.particle.io/reference/firmware/) section of the Particle documentation.
-
-#### ```project.properties``` file:  
-This is the file that specifies the name and version number of the libraries that your project depends on. Dependencies are added automatically to your `project.properties` file when you add a library to a project using the `particle library add` command in the CLI or add a library in the Desktop IDE.
-
-## Adding additional files to your project
-
-#### Projects with multiple sources
-If you would like add additional files to your application, they should be added to the `/src` folder. All files in the `/src` folder will be sent to the Particle Cloud to produce a compiled binary.
-
-#### Projects with external libraries
-If your project includes a library that has not been registered in the Particle libraries system, you should create a new folder named `/lib/<libraryname>/src` under `/<project dir>` and add the `.h`, `.cpp` & `library.properties` files for your library there. Read the [Firmware Libraries guide](https://docs.particle.io/guide/tools-and-features/libraries/) for more details on how to develop libraries. Note that all contents of the `/lib` folder and subfolders will also be sent to the Cloud for compilation.
-
-## Compiling your project
-
-When you're ready to compile your project, make sure you have the correct Particle device target selected and run `particle compile <platform>` in the CLI or click the Compile button in the Desktop IDE. The following files in your project folder will be sent to the compile service:
-
-- Everything in the `/src` folder, including your `.ino` application file
-- The `project.properties` file for your project
-- Any libraries stored under `lib/<libraryname>/src`

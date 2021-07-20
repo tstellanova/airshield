@@ -1,10 +1,22 @@
-
+/*
+ * Copyright (c) 2021 Particle Industries, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <Particle.h>
 #include <cmath>
-// #include "Air_Quality_Sensor.h"
 
-// #include "Adafruit_CCS811.h"
 #include "SparkFunBME280.h"
 #include "SparkFunCCS811.h" 
 
@@ -13,15 +25,13 @@ SYSTEM_THREAD(ENABLED);
 // We're creating a BLE beacon that need not connect to the Particle Cloud
 SYSTEM_MODE(MANUAL);
 
-#define CCS811_ADDR 0x5B //Default I2C Address
-//#define CCS811_ADDR 0x5A //Alternate I2C Address
+const uint8_t CCS811_ADDR = 0x5B ;//Default I2C Address
 
 // Main gas sensor
 CCS811 voc_sensor(CCS811_ADDR);
-// Adafruit_CCS811  voc_sensor; 
 
-// Pressure, Temperature, Humidity Sensor
-BME280 pth_sensor;
+// Main Pressure, Humidity, Temperature, (PHT) Sensor
+BME280 pht_sensor;
 
 
 SerialLogHandler logHandler(115200, LOG_LEVEL_INFO,
@@ -65,8 +75,8 @@ static void update_adv_data() {
 
   //clear current?
   // BLE.stopAdvertising();
-	// Advertise every 250 milliseconds (in units of 0.625 millisecond).
-	BLE.setAdvertisingInterval(400);
+	// Advertise every 500 milliseconds (in units of 0.625 millisecond).
+	BLE.setAdvertisingInterval(800);
 
 	// Continuously advertise
 	BLE.advertise(&ble_ad_data);
@@ -80,27 +90,30 @@ static void configure_advertising() {
 }
 
 
-static void poll_pth_sensor() {
+// Read all of the sensors
+static void poll_sensors() {
   
-  float pressure = pth_sensor.readFloatPressure();
-  float temperature = pth_sensor.readTempC();
-  float humid  = pth_sensor.readFloatHumidity();
-  Log.info("P: %f T: %f H: %f", pressure, temperature, humid);
+  float pressure = pht_sensor.readFloatPressure();
+  float temperature = pht_sensor.readTempC();
+  float humid  = pht_sensor.readFloatHumidity();
+  Log.info("P: %f H: %f T: %f", pressure, humid, temperature);
   if (humid >= 0) {
+    // update voc sensor with environmental data frequently
     voc_sensor.setEnvironmentalData(humid, temperature);
     if (voc_sensor.dataAvailable()) {
-      float cur_val = 0;
-      // uint8_t read_res = voc_sensor.readData();
       auto read_res = voc_sensor.readAlgorithmResults();
       if(CCS811Core::SENSOR_SUCCESS == read_res){
-        Log.info("CO2: %u",voc_sensor.getCO2());
-        Log.info("ppm, TVOC: %u", voc_sensor.getTVOC());
-        cur_val = (float)voc_sensor.getCO2();
+        Log.info("CO2 ppm: %u",voc_sensor.getCO2());
+        Log.info("VOC ppm: %u", voc_sensor.getTVOC());
+        // we only report one gas value currently 
+        float cur_val = (float)voc_sensor.getCO2();
+        
         if (0 == ewma_update_count) {
           ewma_value = cur_val;
         }
         else {
-          ewma_value += (cur_val - ewma_value)*0.01; // EWMA using alpha of 0.01
+          // calculate exponential weighted moving average (EWMA) using alpha of 0.01
+          ewma_value += (cur_val - ewma_value)*0.01;
         }
         ewma_update_count += 1;
         report_value = (uint32_t)ceilf(ewma_value);
@@ -110,22 +123,9 @@ static void poll_pth_sensor() {
       }
 
     }
-
   }
 
-
 }
-
-// static void poll_aq_sensor() {
-//   // ask the sensor to update
-//   int aq_level = aq_sensor.slope();
-//   if (aq_level >= 0) {
-//     // these values generally fall into the range 0..1024
-//     int32_t raw_aq = aq_sensor.getValue();
-//     ewma_value += ((float)raw_aq - ewma_value)*0.01; // EWMA using alpha of 0.01
-//     report_value = (uint32_t)ceilf(ewma_value);
-//   }
-// }
 
 // control how long we sleep based on data collection and publication config
 static void sleep_control(uint32_t sleep_ms) {
@@ -174,31 +174,25 @@ void setup() {
 
   delay(3000);
 
+  // start VOC sensor
   auto voc_rc = voc_sensor.begin();
   if ( CCS811Core::SENSOR_SUCCESS != voc_rc) {
     Log.error("ccs811 begin failed: %u",voc_rc);
   }
-  // else {
-  //   for(uint32_t i = 0; i < 10; i++) {
-  //     if (voc_sensor.available()) { break; }
-  //   }
-  // }
 
+  // configure and start PHT sensor
+  pht_sensor.settings.commInterface = I2C_MODE;
+  pht_sensor.settings.I2CAddress = 0x77;
+  pht_sensor.settings.runMode = 3; //normal mode
+  pht_sensor.settings.tStandby = 0; //ms
+  pht_sensor.settings.filter = 0; // no FIR filter
+  pht_sensor.settings.tempOverSample = 2; // times oversampling
+  pht_sensor.settings.pressOverSample = 2;
+  pht_sensor.settings.humidOverSample = 2;
 
-  pth_sensor.settings.commInterface = I2C_MODE;
-  pth_sensor.settings.I2CAddress = 0x77;
-  pth_sensor.settings.runMode = 3; //normal mode
-  pth_sensor.settings.tStandby = 0; //ms
-  pth_sensor.settings.filter = 0; // no FIR filter
-  pth_sensor.settings.tempOverSample = 2; // times oversampling
-  pth_sensor.settings.pressOverSample = 2;
-  pth_sensor.settings.humidOverSample = 2;
-
-  uint8_t rc = pth_sensor.begin();
-  Log.warn("pth begin: %u", rc);
+  uint8_t rc = pht_sensor.begin();
+  Log.warn("pht begin result: %u", rc);
   
-
-
   configure_advertising();
 }
 
@@ -208,11 +202,10 @@ void loop() {
   // read the argon battery voltage (https://docs.particle.io/cards/firmware/battery-voltage/battery-voltage/)
   // custom_data_value = ((double)analogRead(BATT)) * 0.0011224;
 
-  poll_pth_sensor();
+  poll_sensors();
   update_adv_data();
 
-  // sleep for a while between polling sensor
-  // sleep_control(15000);
-  delay(3000);
+  // sleep for a while between polling sensors
+  sleep_control(15000);
 }
 
