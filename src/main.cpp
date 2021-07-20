@@ -35,6 +35,7 @@ static uint8_t custom_adv_data[BLE_MAX_ADV_DATA_LEN] = {};
 // The value to report in advertisement
 static uint32_t report_value = 0;
 static float ewma_value = 0;
+static uint32_t ewma_update_count = 0;
 
 /// Change advertising data to match latest values
 static void update_adv_data() {
@@ -95,7 +96,13 @@ static void poll_pth_sensor() {
         Log.info("CO2: %u",voc_sensor.getCO2());
         Log.info("ppm, TVOC: %u", voc_sensor.getTVOC());
         cur_val = (float)voc_sensor.getCO2();
-        ewma_value += (cur_val - ewma_value)*0.01; // EWMA using alpha of 0.01
+        if (0 == ewma_update_count) {
+          ewma_value = cur_val;
+        }
+        else {
+          ewma_value += (cur_val - ewma_value)*0.01; // EWMA using alpha of 0.01
+        }
+        ewma_update_count += 1;
         report_value = (uint32_t)ceilf(ewma_value);
       }
       else {
