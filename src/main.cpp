@@ -206,6 +206,6 @@ void loop() {
   update_adv_data();
 
   // sleep for a while between polling sensors
-  sleep_control(15000);
+  sleep_control(5000);
 }
 

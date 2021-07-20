@@ -1,9 +1,3 @@
-[submodule "lib/aqsensor"]
-	path = lib/aqsensor
-	url = https://github.com/particle-iot/Grove_Air_quality_Sensor
-[submodule "lib/ccs811"]
-	path = lib/ccs811
-	url = https://github.com/sparkfun/SparkFun_CCS811_Arduino_Library
 [submodule "lib/bme280"]
 	path = lib/bme280
 	url = https://github.com/sparkfun/SparkFun_BME280_Arduino_Library
