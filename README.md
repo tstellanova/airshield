@@ -28,7 +28,7 @@ This application may be built with Device OS version 2.1.0 (LTS) and above.
 
 1. Clone this repository 
 2. Init & Update Submodules `git submodule update --init --recursive`
-3. Cloud build with CLI :
+3. Cloud build (for Argon board) with CLI :
 `particle compile --target 2.1.0 argon --saveTo airshield_argon.bin`
 
 4. Connect your Argon to your computer with a usb cable
